@@ -69,7 +69,7 @@ except ImportError:
 
 ###############################################################################
 
-version = '2.1.1'
+version = '2.1.2'
 name = 'Basic Modules'
 identifier = 'org.vistrails.vistrails.basic'
 old_identifiers = ['edu.utah.sci.vistrails.basic']
@@ -366,7 +366,10 @@ class Path(Constant):
     _settings = ModuleSettings(constant_widget=("%s:PathChooserWidget" % \
                                                 constant_config_path))
     _input_ports = [IPort("value", "Path"),
-                    IPort("name", "String", optional=True)]
+                    IPort("name", "String", optional=True),
+                    IPort("relative_to", "String", optional=True,
+                          default='vtfile', entry_type='enum',
+                          values=['vtfile', 'vistrails', 'cwd'])]
     _output_ports = [OPort("value", "Path")]
 
     @staticmethod
@@ -384,10 +387,31 @@ class Path(Constant):
     def get_name(self):
         n = None
         if self.has_input("value"):
-            n = self.get_input("value").name
+            n = os.path.abspath(self.get_input("value").name)
         if n is None:
             self.check_input("name")
             n = self.get_input("name")
+
+            relative_to = self.get_input('relative_to')
+            if os.path.isabs(n):
+                pass
+            elif relative_to == 'vtfile':
+                # FIXME: This affects caching! We'll need custom signatures
+                url = self.moduleInfo['locator'].to_url()
+                if not url.startswith('file:///'):
+                    raise ModuleError(self, "Locator does not refer to a file")
+                n = os.path.join(os.path.dirname(urllib.unquote(url[8:])), n)
+            elif relative_to == 'cwd':
+                pass  # Don't alter path
+            elif relative_to == 'vistrails':
+                n = os.path.join(
+                        vistrails.core.system.vistrails_root_directory(),
+                        n)
+            else:
+                raise ModuleError(
+                        self,
+                        "Invalid value for 'relative_to': %s" % relative_to)
+
         return n
 
     def set_results(self, n):
@@ -1379,7 +1403,7 @@ def handle_module_upgrade_request(controller, module_id, pipeline):
         return ops
 
     module_remap = {'FileSink':
-    [(None, '1.6', None,
+                        [(None, '1.6', None,
                           {'dst_port_remap':
                                {'overrideFile': 'overwrite',
                                 'outputName': outputName_remap},
@@ -1411,6 +1435,10 @@ def handle_module_upgrade_request(controller, module_id, pipeline):
                         [(None, '2.1.1', None, {})],
                     'Converter':
                         [(None, '2.1.1', None, {})],
+                    'File':
+                        [(None, '2.1.2', None,
+                          {'dst_port_remap':
+                               {'relative_to': TODO}})]
                     }
 
     return UpgradeWorkflowHandler.remap_module(controller, module_id, pipeline,
