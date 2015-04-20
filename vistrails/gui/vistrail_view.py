@@ -964,7 +964,7 @@ class QVistrailView(QtGui.QWidget):
         return True
 
     def export_python(self):
-        """ save workflow to previous stable version """
+        """ translate workflow to a standalone Python script """
         self.flush_changes()
         filename = QtGui.QFileDialog.getSaveFileName(
             self, "Select file name to export workflow to",
