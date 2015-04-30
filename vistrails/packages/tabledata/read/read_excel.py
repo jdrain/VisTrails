@@ -153,11 +153,11 @@ _modules = [ExcelSpreadsheet]
 
 import itertools
 import unittest
-from vistrails.tests.utils import execute, intercept_result
+from vistrails.tests.utils import execute, intercept_result, skip_if_checked
 from ..identifiers import identifier
 from ..common import ExtractColumn
 
-@unittest.skipIf(get_xlrd() is None, "xlrd not available")
+@skip_if_checked(get_xlrd() is None, 'xlrd', "xlrd not available")
 class ExcelTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

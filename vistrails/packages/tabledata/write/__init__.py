@@ -61,6 +61,7 @@ _modules = make_modules_dict(numpy_modules, csv_modules, excel_modules,
 ###############################################################################
 
 import unittest
+from vistrails.tests.utils import skip_if_checked
 
 
 class BaseWriteTestCase(object):
@@ -125,7 +126,7 @@ class BaseWriteTestCase(object):
         self.assertEqual(results[0], ['a', '2', 'c'])
 
 
-@unittest.skipIf(get_xlwt() is None, "xlwt not available")
+@skip_if_checked(get_xlwt() is None, "xlwt not available")
 class ExcelWriteTestCase(unittest.TestCase, BaseWriteTestCase):
     WRITER_MODULE = 'write|WriteExcelSpreadsheet'
     READER_MODULE = 'read|ExcelSpreadsheet'
