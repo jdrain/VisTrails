@@ -349,6 +349,9 @@ class MockLogHandler(logging.Handler):
                 logging._releaseLock()
 
 
+def _id(obj):
+    return obj
+
 
 class SkippingChecker(object):
     """This mechanism allows to specify the checks you expect to fail.
@@ -367,11 +370,30 @@ class SkippingChecker(object):
     def __init__(self):
         self.allowed_tests = None
 
+    def skippable(self, dependency_specs):
+        if isinstance(dependency_specs, basestring):
+            dependency_specs = dependency_specs,
+
+        # Not using a whitelist; assume this is fine. The fact that this was
+        # skipped will still be logged if the testsuite is verbose
+        if self.allowed_tests is None:
+            return True
+        # Check against whitelist
+        else:
+            for dep in dependency_specs:
+                path = []
+                for comp in dep.split('.'):
+                    path.append(comp)
+                    if tuple(path) in self.allowed_tests:
+                        return True
+
+        return False
+
     def skip_test(self, dependency_specs, reason=None):
         """Skip this test, if allowed.
 
         This raises SkipTest, same as unittest.TestCase.skipTest(), except that
-        if a list of skippable tests have been provided, this will fail if the
+        if a list of skippable tests has been provided, this will fail if the
         test does not appear in the list.
 
         This allows the test runner to specify the tests it expects to be
@@ -385,24 +407,30 @@ class SkippingChecker(object):
         else:
             args = ()
 
-        if isinstance(dependency_specs, basestring):
-            dependency_specs = dependency_specs,
-
-        # Not using a whitelist; assume this is fine. The fact that this was
-        # skipped will still be logged if the testsuite is verbose
-        if self.allowed_tests is None:
+        if self.skippable(dependency_specs):
             raise unittest.SkipTest(*args)
-        # Check against whitelist
         else:
-            for dep in dependency_specs:
-                path = []
-                for comp in dep.split('.'):
-                    path.append(comp)
-                    if tuple(path) in self.allowed_tests:
-                        raise unittest.SkipTest(*args)
+            raise AssertionError("Failing on disallowed skip_test(%r)" %
+                                 ", ".join(args))
 
-        raise AssertionError("Failing on disallowed SkipTest(%r)" %
-                             ", ".join(args))
+    def skip_if(self, condition, dependency_specs, reason=None):
+        """Replacement for unittest.skipIf, with same semantics as skip_test.
+
+        This will only skip if no list of skippable tests has been provided, or
+        if this test's dependencies match that list.
+        """
+        if reason:
+            args = reason,
+        else:
+            args = ()
+
+        if condition:
+            if self.skippable(dependency_specs):
+                return unittest.skip(reason)
+            else:
+                raise AssertionError("Failing on disallowed skip_if(%r)" %
+                                     ", ".join(args))
+        return _id
 
     def set_allowed_skips(self, tests):
         """Sets the tests that can be skipped.
@@ -415,7 +443,9 @@ class SkippingChecker(object):
 
 _test_skipping_checker = SkippingChecker()
 
+skippable_test = _test_skipping_checker.skippable
 skip_test_checked = _test_skipping_checker.skip_test
+skip_if_checked = _test_skipping_checker.skip_if
 set_skippable_tests = _test_skipping_checker.set_allowed_skips
 
 
